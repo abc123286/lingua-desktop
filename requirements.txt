@@ -1,0 +1,8 @@
+faster-whisper>=1.1.0
+soundcard>=0.4.5
+numpy>=1.26
+edge-tts>=7.0.0
+miniaudio>=1.59
+deep-translator>=1.11.4
+pynput>=1.7.6
+certifi
