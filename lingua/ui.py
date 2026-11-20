@@ -13,7 +13,7 @@ from .translate import Translator
 
 AUTO = "Auto-detect"
 MODELS = ["tiny", "base", "small", "medium", "large-v3"]
-MODEL_HELP = {"tiny": "fastest, least accurate", "base": "fast", "small": "good balance (recommended)",
+MODEL_HELP = {"tiny": "fastest, least accurate", "base": "fast (recommended for laptops)", "small": "more accurate, slower",
               "medium": "accurate, needs a strong PC", "large-v3": "best, needs a gaming GPU"}
 IS_MAC = sys.platform == "darwin"
 HOTKEYS = {"in": "<ctrl>+<alt>+h", "out": "<ctrl>+<alt>+m", "overlay": "<ctrl>+<alt>+o"}
@@ -290,10 +290,14 @@ class App:
         self._row(t, 9, "Pause that ends a sentence (ms)", ttk.Spinbox(t, from_=300, to=2000, increment=100,
                   textvariable=self.bind_cfg("silence_ms", "int", on_change=self._seg_changed)),
                   "Shorter = faster but may cut sentences; longer = more complete sentences.")
-        ttk.Label(t, text="Custom vocabulary (one per line, “term = translation” optional):").grid(row=11, column=0, columnspan=2, sticky="w", pady=(10, 2))
+        self._row(t, 11, "Longest piece before translating (s)", ttk.Spinbox(t, from_=3, to=15, increment=1,
+                  textvariable=self.bind_cfg("max_seconds", "int", on_change=self._seg_changed)),
+                  "When people talk without pausing, translate every few seconds. Lower = faster captions, "
+                  "higher = more complete sentences.")
+        ttk.Label(t, text="Custom vocabulary (one per line, “term = translation” optional):").grid(row=13, column=0, columnspan=2, sticky="w", pady=(10, 2))
         self.gloss = tk.Text(t, height=5, wrap="word")
         self.gloss.insert("1.0", self.cfg["glossary"])
-        self.gloss.grid(row=12, column=0, columnspan=2, sticky="nsew")
+        self.gloss.grid(row=14, column=0, columnspan=2, sticky="nsew")
         self.gloss.bind("<FocusOut>", lambda e: self._save_gloss())
 
     def _tab_overlay(self, nb):
@@ -368,6 +372,7 @@ class App:
             if d.seg:
                 d.seg.sensitivity = float(self.cfg["sensitivity"])
                 d.seg.silence_blocks = max(2, int(int(self.cfg["silence_ms"]) / 50))
+                d.seg.max_samples = int(float(self.cfg.get("max_seconds", 6)) * 16000)
 
     def refresh_devices(self, first=False):
         try:

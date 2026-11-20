@@ -40,7 +40,8 @@ class Direction:
     def _open(self):
         """Open the capture + output devices for this direction."""
         c = self.cfg
-        self.seg = Segmenter(sensitivity=float(c["sensitivity"]), silence_ms=int(c["silence_ms"]))
+        self.seg = Segmenter(sensitivity=float(c["sensitivity"]), silence_ms=int(c["silence_ms"]),
+                             max_seconds=float(c.get("max_seconds", 6)))
         if self.kind == "in":
             src = audio.find_mic(c["in_source"], loopback=True)
             self.output = audio.Output(audio.find_speaker(c["in_voice_output"]), self._dev_error)

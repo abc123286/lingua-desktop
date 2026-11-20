@@ -8,7 +8,7 @@ BLOCK_MS = 50
 
 
 class Segmenter:
-    def __init__(self, sensitivity=3.0, silence_ms=700, max_seconds=12.0, min_speech_ms=350, preroll_ms=300):
+    def __init__(self, sensitivity=3.0, silence_ms=500, max_seconds=6.0, min_speech_ms=350, preroll_ms=300):
         self.sensitivity = sensitivity
         self.silence_blocks = max(2, int(silence_ms / BLOCK_MS))
         self.max_samples = int(max_seconds * SR)
@@ -46,7 +46,9 @@ class Segmenter:
         else:
             self.silent += 1
         total = sum(len(b) for b in self.buf)
-        if self.silent >= self.silence_blocks or total >= self.max_samples:
+        # Long continuous talk: after half the limit, cut at the first short breath (150 ms)
+        soft_cut = total >= self.max_samples // 2 and self.silent >= 3
+        if self.silent >= self.silence_blocks or soft_cut or total >= self.max_samples:
             return self._finish(force_keep=total >= self.max_samples)
         return None
 

@@ -23,14 +23,15 @@ DEFAULTS = {
     "out_gender": "Female",
     "out_passthrough": True,    # when translation is OFF, send my normal voice through
     # --- Engines ---
-    "whisper_model": "small",   # tiny / base / small / medium / large-v3
+    "whisper_model": "base",    # tiny / base / small / medium / large-v3
     "translator": "google_free",  # google_free / gemini
     "gemini_key": "",
     "gemini_model": "gemini-flash-latest",
     "glossary": "",
     "rate": 1.0,
     "sensitivity": 3.0,         # higher = needs louder speech to trigger
-    "silence_ms": 700,          # pause that ends a sentence
+    "silence_ms": 500,          # pause that ends a sentence
+    "max_seconds": 6,           # longest piece of continuous talk before translating
     # --- Overlay ---
     "overlay_font": 20,
     "overlay_alpha": 0.85,

@@ -36,7 +36,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "LINGUA",
             "CFBundleDisplayName": "LINGUA",
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleShortVersionString": "1.1.0",
             "NSMicrophoneUsageDescription": "LINGUA listens to your microphone and meeting audio to translate speech.",
             "NSHighResolutionCapable": True,
         },
