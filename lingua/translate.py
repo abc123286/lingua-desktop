@@ -1,6 +1,7 @@
 """Translation engines (pluggable). Both are free:
 
 - google_free : Google Translate's free web endpoint (via deep-translator). No key, no sign-up.
+- mymemory    : MyMemory free API, used automatically when Google refuses (no key).
 - gemini      : Google Gemini free tier (key from aistudio.google.com). Smarter: uses the
                 previous sentences and your vocabulary list. Falls back to google_free on errors.
 
@@ -42,6 +43,27 @@ class GoogleFree:
             except Exception as e:
                 last = e
         raise last or RuntimeError("Empty translation")
+
+
+class MyMemory:
+    """Free fallback (api.mymemory.translated.net), no key, ~5,000 characters/day per computer."""
+    label = "MyMemory (free fallback)"
+
+    def translate(self, text, src, tgt, context="", glossary=""):
+        import urllib.parse
+        s = (src or "en").split("-")[0] if src not in ("zh-CN", "zh-TW") else src
+        t = tgt.split("-")[0] if tgt not in ("zh-CN", "zh-TW") else tgt
+        if t == "yue":
+            t = "zh-TW"
+        if s == "yue":
+            s = "zh-TW"
+        q = urllib.parse.urlencode({"q": text[:500], "langpair": f"{s}|{t}"})
+        with urllib.request.urlopen(f"https://api.mymemory.translated.net/get?{q}", timeout=10, context=_ssl_ctx()) as r:
+            data = json.loads(r.read().decode())
+        out = (data.get("responseData") or {}).get("translatedText", "")
+        if not out or data.get("responseStatus") not in (200, "200") or "MYMEMORY WARNING" in out.upper():
+            raise RuntimeError(f"MyMemory: {data.get('responseDetails') or 'no result'}")
+        return out
 
 
 class Gemini:
@@ -90,7 +112,9 @@ class Translator:
     def __init__(self, cfg, log):
         self.cfg, self.log = cfg, log
         self.google = GoogleFree()
+        self.mymemory = MyMemory()
         self._gem = None
+        self.google_pause_until = 0
 
     def _gemini(self):
         key, model = self.cfg.get("gemini_key", ""), self.cfg.get("gemini_model", "")
@@ -107,4 +131,24 @@ class Translator:
                 return self._gemini().translate(text, src, tgt, context, glossary)
             except Exception as e:
                 self.log(f"Gemini failed ({e}); using Google Translate for this sentence.")
-        return self.google.translate(text, src, tgt, context, glossary)
+        return self._free(text, src, tgt, context, glossary)
+
+    def _free(self, text, src, tgt, context, glossary):
+        """Google (retry once) -> MyMemory. Google is paused for 2 minutes after it refuses us."""
+        err = None
+        if time.time() >= self.google_pause_until:
+            for attempt in range(2):
+                try:
+                    return self.google.translate(text, src, tgt, context, glossary)
+                except Exception as e:
+                    err = e
+                    if "TooManyRequests" not in type(e).__name__ and "429" not in str(e):
+                        break
+                    time.sleep(1.5)
+            if err is not None and ("TooManyRequests" in type(err).__name__ or "429" in str(err)):
+                self.google_pause_until = time.time() + 120
+                self.log("Google Translate is busy; using MyMemory for the next 2 minutes.")
+        try:
+            return self.mymemory.translate(text, src, tgt, context, glossary)
+        except Exception as e2:
+            raise RuntimeError(f"All free translators failed (Google: {err}; MyMemory: {e2})")
