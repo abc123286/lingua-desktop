@@ -101,10 +101,35 @@ def from_whisper(wcode):
     return WHISPER_TO_CODE.get(wcode, wcode)
 
 
-def to_whisper(code):
-    if not code or code == "auto":
+def to_whisper(code, model_size="large-v3"):
+    """Whisper language token for a LINGUA code. Cantonese ('yue') only exists in large-v3 models;
+    smaller models get Chinese ('zh') instead of an error."""
+    if not code or code == "auto" or code.startswith("x-"):
         return None
-    return CODE_TO_WHISPER.get(code, code.split("-")[0])
+    w = CODE_TO_WHISPER.get(code, code.split("-")[0])
+    if w == "yue" and "large-v3" not in str(model_size):
+        return "zh"
+    return w
+
+
+# Groq/OpenAI return the language as an English name ("english", "malay")
+_NAME_TO_WHISPER = {v.lower(): k for k, v in WHISPER_NAMES.items()}
+_NAME_TO_WHISPER.update({"mandarin": "zh", "tagalog": "tl", "burmese": "my", "myanmar": "my"})
+
+
+def whisper_name_to_code(name):
+    n = (name or "").strip().lower()
+    if not n:
+        return None
+    if n in _NAME_TO_WHISPER:
+        return from_whisper(_NAME_TO_WHISPER[n])
+    if len(n) <= 3:
+        return from_whisper(n)
+    return None
+
+
+def is_cjk_char(t):
+    return any("\u3040" <= ch <= "\u30ff" or "\u3400" <= ch <= "\u9fff" or "\uac00" <= ch <= "\ud7af" for ch in t)
 
 
 def google_code(code):

@@ -4,10 +4,10 @@ cd /d "%~dp0"
 echo ============================================
 echo   LINGUA Desktop - one-time install
 echo ============================================
-where py >nul 2>nul
+py -3.12 --version >nul 2>nul
 if errorlevel 1 (
   echo.
-  echo Python is not installed.
+  echo Python 3.12 is not installed.
   echo 1. Go to https://www.python.org/downloads/  and install Python 3.12
   echo 2. On the first installer screen, TICK "Add python.exe to PATH"
   echo 3. Then double-click this file again.
@@ -15,7 +15,7 @@ if errorlevel 1 (
   exit /b
 )
 echo Creating a private Python folder (.venv)...
-py -3 -m venv .venv
+py -3.12 -m venv .venv
 if errorlevel 1 ( echo Could not create .venv & pause & exit /b )
 echo Installing parts (this takes a few minutes)...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip

@@ -115,10 +115,43 @@ def find_speaker(name):
     return sc.default_speaker()
 
 
+def _lowpass_taps(n=31, cutoff=0.30):
+    """Windowed-sinc low-pass filter (cutoff as a fraction of the 48 kHz sample rate's Nyquist band)."""
+    m = np.arange(n) - (n - 1) / 2
+    h = np.sinc(2 * cutoff * m / 2) * np.hamming(n)
+    return (h / h.sum()).astype(np.float32)
+
+
+_TAPS = _lowpass_taps()
+
+
+class Resampler:
+    """48 kHz -> 16 kHz with a proper anti-aliasing filter, continuous across blocks."""
+
+    def __init__(self):
+        self.tail = np.zeros(len(_TAPS) - 1, dtype=np.float32)
+        self.phase = 0
+
+    def __call__(self, block48):
+        x = np.concatenate([self.tail, block48.astype(np.float32)])
+        y = np.convolve(x, _TAPS, mode="valid")
+        self.tail = x[-(len(_TAPS) - 1):]
+        out = y[self.phase::3]
+        self.phase = (self.phase - len(y)) % 3
+        return out.astype(np.float32)
+
+
 def to_16k(block48):
-    """48 kHz -> 16 kHz: average every 3 samples (cheap low-pass + decimate)."""
-    n = len(block48) - (len(block48) % 3)
-    return block48[:n].reshape(-1, 3).mean(axis=1).astype(np.float32)
+    """Stateless helper (tests and one-off clips)."""
+    return Resampler()(block48)
+
+
+def to_48k(audio16k):
+    """16 kHz -> 48 kHz for playing a recorded sentence back into the meeting."""
+    n = len(audio16k)
+    if n == 0:
+        return audio16k
+    return np.interp(np.arange(n * 3) / 3.0, np.arange(n), audio16k).astype(np.float32)
 
 
 class Capture(threading.Thread):
@@ -159,8 +192,8 @@ class Output(threading.Thread):
         self.busy = False          # True while a voice clip is playing
         self.last_voice = 0.0      # time the last voice clip finished
 
-    def play_clip(self, audio):
-        self.q.put(("clip", audio))
+    def play_clip(self, audio, on_start=None):
+        self.q.put(("clip", (audio, on_start) if on_start else audio))
 
     def stream(self, block):
         """Pass-through audio (e.g. your normal voice). Dropped while a clip is playing."""
@@ -171,6 +204,19 @@ class Output(threading.Thread):
         self.skip_evt.set()
         with self.q.mutex:
             self.q.queue.clear()
+
+    def backlog(self):
+        """Number of clips waiting (used to speed up speech when it falls behind)."""
+        with self.q.mutex:
+            return sum(1 for k, _ in self.q.queue if k == "clip")
+
+    def skip_to_latest(self):
+        with self.q.mutex:
+            clips = [x for x in self.q.queue if x[0] == "clip"]
+            self.q.queue.clear()
+            if clips:
+                self.q.queue.append(clips[-1])
+        self.skip_evt.set()
 
     def run(self):
         _com_init()
@@ -184,6 +230,12 @@ class Output(threading.Thread):
                     if kind == "clip":
                         self.busy = True
                         self.skip_evt.clear()
+                        if isinstance(audio, tuple):
+                            audio, on_start = audio
+                            try:
+                                on_start()
+                            except Exception:
+                                pass
                         for i in range(0, len(audio), BLOCK):
                             if self.stop_evt.is_set() or self.skip_evt.is_set():
                                 break

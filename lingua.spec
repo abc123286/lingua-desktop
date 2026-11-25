@@ -1,10 +1,13 @@
 # PyInstaller build recipe:  pyinstaller lingua.spec
+import re
 import sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
+# icons come from tools/make_icons.py (run it first); the version comes from lingua/__init__.py
+VERSION = re.search(r'__version__ = "([^"]+)"', open("lingua/__init__.py").read()).group(1)
 datas, binaries, hiddenimports = [], [], []
 for pkg in ("ctranslate2", "faster_whisper", "onnxruntime", "av", "tokenizers", "soundcard",
-            "edge_tts", "certifi", "miniaudio", "deep_translator"):
+            "edge_tts", "certifi", "miniaudio", "keyring"):
     try:
         d, b, h = collect_all(pkg)
         datas += d
@@ -36,7 +39,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "LINGUA",
             "CFBundleDisplayName": "LINGUA",
-            "CFBundleShortVersionString": "1.1.0",
+            "CFBundleShortVersionString": VERSION,
             "NSMicrophoneUsageDescription": "LINGUA listens to your microphone and meeting audio to translate speech.",
             "NSHighResolutionCapable": True,
         },

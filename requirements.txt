@@ -1,8 +1,14 @@
-faster-whisper>=1.1.0
-soundcard>=0.4.5
-numpy>=1.26
-edge-tts>=7.0.0
-miniaudio>=1.59
-deep-translator>=1.11.4
-pynput>=1.7.6
-certifi
+# Exact versions that passed the build self-test (Nov 2026). Update deliberately, not by accident.
+faster-whisper==1.2.1
+ctranslate2==4.9.0
+onnxruntime==1.32.0
+av==19.0.2
+tokenizers==0.23.3
+huggingface-hub==2.4.0
+soundcard==0.4.6
+numpy==2.5.5
+edge-tts==7.3.1
+miniaudio==1.73
+pynput==1.8.2
+certifi==2026.10.23
+keyring>=25,<27

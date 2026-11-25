@@ -8,7 +8,7 @@ BLOCK_MS = 50
 
 
 class Segmenter:
-    def __init__(self, sensitivity=3.0, silence_ms=500, max_seconds=6.0, min_speech_ms=350, preroll_ms=300):
+    def __init__(self, sensitivity=3.0, silence_ms=500, max_seconds=6.0, min_speech_ms=150, preroll_ms=300):
         self.sensitivity = sensitivity
         self.silence_blocks = max(2, int(silence_ms / BLOCK_MS))
         self.max_samples = int(max_seconds * SR)
@@ -23,6 +23,12 @@ class Segmenter:
     @property
     def speaking(self):
         return self.in_speech
+
+    def current(self):
+        """Audio of the sentence still being spoken (for live captions), or None."""
+        if not self.in_speech or not self.buf:
+            return None
+        return np.concatenate(self.buf)
 
     def feed(self, block):
         """block: float32 mono 16 kHz (~50 ms). Returns a finished segment (np.ndarray) or None."""

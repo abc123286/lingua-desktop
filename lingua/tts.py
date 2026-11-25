@@ -48,10 +48,36 @@ async def _synth(text, voice, rate):
     pct = int(round((rate - 1.0) * 100))
     com = edge_tts.Communicate(text, voice, rate=f"{pct:+d}%")
     buf = bytearray()
-    async for chunk in com.stream():
-        if chunk.get("type") == "audio":
-            buf.extend(chunk["data"])
+
+    async def run():
+        async for chunk in com.stream():
+            if chunk.get("type") == "audio":
+                buf.extend(chunk["data"])
+    await asyncio.wait_for(run(), timeout=8)
     return bytes(buf)
+
+
+def split_clauses(text, max_len=120):
+    """Speak long translations piece by piece. The first piece is kept short so the voice starts sooner."""
+    import re
+    parts = [p.strip() for p in re.split(r"(?<=[.!?;:,。！？；：，、])\s*", text) if p.strip()]
+    out, cur = [], ""
+    for p in parts:
+        cjk = languages.is_cjk_char(p)
+        joined = (cur + p) if cjk else (cur + " " + p).strip()
+        if cur and len(joined) > max_len:
+            out.append(cur)
+            joined = p
+        cur = joined
+        first = not out
+        min_len = (6 if cjk else 12) if first else (10 if cjk else 25)
+        ends = cur[-1:] in (".!?;:,。！？；：，、" if first else ".!?;:。！？；：")
+        if (len(cur) >= min_len and ends) or len(cur) >= 70:
+            out.append(cur)
+            cur = ""
+    if cur:
+        out.append(cur)
+    return out or [text]
 
 
 def synthesize(text, code, gender="Female", rate=1.0, sample_rate=48000):
@@ -59,6 +85,7 @@ def synthesize(text, code, gender="Female", rate=1.0, sample_rate=48000):
     voice = pick_voice(code, gender)
     if not voice:
         return None
+    rate = max(0.5, min(2.0, rate))
     mp3 = asyncio.run(_synth(text[:2000], voice, rate))
     if not mp3:
         return None
